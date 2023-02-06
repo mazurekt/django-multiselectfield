@@ -15,9 +15,39 @@
 # along with this programe.  If not, see <http://www.gnu.org/licenses/>.
 
 from django import forms
+from django.forms.widgets import CheckboxSelectMultiple, SelectMultiple
 
 from ..utils import get_max_length
-from ..validators import MaxValueMultiFieldValidator, MinChoicesValidator, MaxChoicesValidator
+from ..validators import (MaxChoicesValidator, MaxValueMultiFieldValidator,
+                          MinChoicesValidator)
+
+
+# class CustomRadioSelect(RadioSelect):
+#     # This custom_multiple_input uses the original django template but add html breaks (<br>).
+#     template_name = 'multiselectfield/forms/widgets/custom_multiple_input.html'
+
+
+class CustomRadioSelect(CheckboxSelectMultiple):
+    # This custom_multiple_input uses the original django template but add html breaks (<br>).
+    allow_multiple_selected = False
+    template_name = 'multiselectfield/forms/widgets/custom_multiple_input.html'
+    input_type = 'radio'
+    # template_name = 'django/forms/widgets/radio.html'
+    option_template_name = 'django/forms/widgets/radio_option.html'
+
+
+class CustomSelect(SelectMultiple):
+    """
+    This is mostly same code of the SelectMultiple widget.
+    The only difference is the allow_multiple_selected attribute is False.
+    Treat the SelectMultiple as a single Select so the database has the same
+    datatype as MultiSelectFormField.
+    """
+    allow_multiple_selected = False
+
+
+class CustomCheckboxSelectMultiple(CheckboxSelectMultiple):
+    pass
 
 
 class MultiSelectFormField(forms.MultipleChoiceField):
@@ -34,3 +64,21 @@ class MultiSelectFormField(forms.MultipleChoiceField):
             self.validators.append(MaxChoicesValidator(self.max_choices))
         if self.min_choices is not None:
             self.validators.append(MinChoicesValidator(self.min_choices))
+
+
+class SingleSelectFormField(forms.MultipleChoiceField):
+    """
+    The reason that I am inheriting from MultipleChoiceField is to make the
+    data types the same in the database so I can easily switch from this
+    SingleSelectFormField to a MultiSelectFormField.
+    """
+    widget = None
+    max_choices = 1
+
+    def __init__(self, *args, **kwargs):
+        self.max_length = kwargs.pop('max_length', None)
+        self.widget = kwargs.pop('widget', None)
+        super(SingleSelectFormField, self).__init__(*args, **kwargs)
+        self.max_length = get_max_length(self.choices, self.max_length)
+        self.validators.append(MaxValueMultiFieldValidator(self.max_length))
+        self.validators.append(MaxChoicesValidator(self.max_choices))
